@@ -66,11 +66,20 @@ const MyOrdersPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
   const [orders , setOrders]= useState<Order[]>()
+  const {token}= useSelector((state: RootState)=>state.auth)
+  
 
   const getOrders = async ()=>{
     try {
-      const res = await axios.get("lazy_backend_dev" )
+      const res = await axios.get("http://127.0.0.1:8000/order/myorders/",{
+        method:"GET",
+        headers:{
+          Authorization: `Bearer ${token}`,
+          // "Content-Type" : "multipart/form-data"
+        }
+      } )
     setOrders(res.data)
+    console.log(res.data)
     } catch (error) {
       console.log(error)
     }
@@ -85,7 +94,7 @@ const MyOrdersPage: React.FC = () => {
   }
 
   const filteredOrders = statusFilter === "all" 
-    ? mockOrders 
+    ? mockOrders
     : mockOrders.filter(order => order.status === statusFilter);
 
   const handleOrderClick = (orderId: string) => {

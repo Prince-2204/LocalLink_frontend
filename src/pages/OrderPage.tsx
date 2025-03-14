@@ -13,8 +13,10 @@ const OrderPage: React.FC = () => {
   const [itemDescription, setItemDescription] = useState<string>("");
   const [deliveryDeadline, setDeliveryDeadline] = useState<string>("");
   const [maxBudget, setMaxBudget] = useState<number>(0);
+  const {token}= useSelector((state: RootState)=>state.auth)
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    
     e.preventDefault();
     console.log(pickupLocation, dropoffLocation, itemName, itemDescription, deliveryDeadline, maxBudget);
     
@@ -26,9 +28,16 @@ const OrderPage: React.FC = () => {
     formData.append("itemDescription" , itemDescription)
     formData.append("deliveryDeadline" , deliveryDeadline)
     formData.append("maxBudget" , maxBudget.toString())
+    console.log(formData)
 
     try {
-      const res = await axios.post("nobackendsed:(" , formData)
+      const res = await axios.post("http://127.0.0.1:8000/order/details/" , formData , {
+        method: "POST",
+        headers:{
+          Authorization: `Bearer ${token}`,
+          "Content-Type" : "multipart/form-data"
+        }
+      })
       console.log(res)
     } catch (e) {
       console.log(e)

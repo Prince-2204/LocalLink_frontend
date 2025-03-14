@@ -73,11 +73,19 @@ const ActiveRoutesPage: React.FC = () => {
   const [selectedRoute, setSelectedRoute] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [routes, setRoutes]= useState<Route[]>()
+  const {token}= useSelector((state: RootState)=>state.auth)
+  
 
   const getActiveRoutes= async ()=>{
     try {
-      const  res = await axios.get("")
-      setRoutes(res)
+      const  res = await axios.get("http://127.0.0.1:8000/delivery/activeroute/",{
+        headers:{
+          Authorization: `Bearer ${token}`,
+          // "Content-Type" : "multipart/form-data"
+        }
+      })
+    setRoutes(res.data)
+    console.log(res.data)
     } catch (error) {
       console.log(error)
     }

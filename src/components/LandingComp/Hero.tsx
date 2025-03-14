@@ -33,7 +33,7 @@ const Hero = () => {
 
             <div className="flex flex-col sm:flex-row justify-center lg:justify-start space-y-4 sm:space-y-0 sm:space-x-4 animate-fade-in-up animation-delay-200">
               <Link
-                to="/order"
+                to="/orders"
                 className="inline-flex items-center justify-center bg-accent text-white px-6 py-3 rounded-lg text-lg font-medium hover:bg-accent-dark transition-all duration-300 shadow-lg shadow-accent/20"
               >
                 Place an Order
