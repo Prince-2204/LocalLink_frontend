@@ -94,8 +94,8 @@ const MyOrdersPage: React.FC = () => {
   }
 
   const filteredOrders = statusFilter === "all" 
-    ? mockOrders
-    : mockOrders.filter(order => order.status === statusFilter);
+    ? orders
+    : orders?.filter(order => order.status === statusFilter);
 
   const handleOrderClick = (orderId: string) => {
     setSelectedOrder(selectedOrder === orderId ? null : orderId);
@@ -176,8 +176,8 @@ const MyOrdersPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-secondary">
-                {filteredOrders.length > 0 ? (
-                  filteredOrders.map((order) => (
+                {(filteredOrders || []).length > 0 ? (
+                  filteredOrders?.map((order) => (
                     <React.Fragment key={order.id}>
                       <tr 
                         onClick={() => handleOrderClick(order.id)}

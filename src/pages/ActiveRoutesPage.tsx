@@ -5,60 +5,21 @@ import { Navigate } from "react-router-dom";
 import OrderNavbar from "@/components/OrdersComp/OrderNavbar";
 import axios from "axios";
 
-// Mock data - would be replaced with actual API data
-const mockRoutes = [
-  {
-    id: "route-001",
-    deliveryPartner: "Rahul Singh",
-    startLocation: "Andheri East, Mumbai",
-    destinations: [
-      { address: "Bandra West, Mumbai", estimatedArrival: "2023-08-15T11:30:00" },
-      { address: "Dadar, Mumbai", estimatedArrival: "2023-08-15T12:45:00" },
-      { address: "Worli, Mumbai", estimatedArrival: "2023-08-15T14:00:00" }
-    ],
-    departureTime: "2023-08-15T10:00:00",
-    estimatedCompletion: "2023-08-15T15:30:00",
-    vehicle: "Motorcycle",
-    status: "in-progress"
-  },
-  {
-    id: "route-002",
-    deliveryPartner: "Priya Patel",
-    startLocation: "Indiranagar, Bangalore",
-    destinations: [
-      { address: "Koramangala, Bangalore", estimatedArrival: "2023-08-16T09:15:00" },
-      { address: "HSR Layout, Bangalore", estimatedArrival: "2023-08-16T10:30:00" }
-    ],
-    departureTime: "2023-08-16T08:30:00",
-    estimatedCompletion: "2023-08-16T11:45:00",
-    vehicle: "Scooter",
-    status: "scheduled"
-  },
-  {
-    id: "route-003",
-    deliveryPartner: "Amit Kumar",
-    startLocation: "Connaught Place, Delhi",
-    destinations: [
-      { address: "Karol Bagh, Delhi", estimatedArrival: "2023-08-14T13:00:00" },
-      { address: "Lajpat Nagar, Delhi", estimatedArrival: "2023-08-14T14:15:00" },
-      { address: "Greater Kailash, Delhi", estimatedArrival: "2023-08-14T15:30:00" }
-    ],
-    departureTime: "2023-08-14T12:00:00",
-    estimatedCompletion: "2023-08-14T16:45:00",
-    vehicle: "Car",
-    status: "completed"
-  }
-];
+interface Destination {
+  address: string;
+  estimatedArrival: string;
+}
 
+// Updated Route interface to match backend response
 interface Route {
-  id: string;
-  deliveryPartner: string;
-  startLocation: string;
-  destinations: Destination[];
-  departureTime: string;
-  estimatedCompletion: string;
-  vehicle: string;
-  status: 'scheduled' | 'in-progress' | 'completed' | 'cancelled';
+  id: number;
+  start_location: string;
+  end_location: string;
+  date: string;
+  time: string;
+  user: number;
+  // For UI compatibility
+  status?: 'scheduled' | 'in-progress' | 'completed' | 'cancelled';
 }
 
 const statusColors: Record<string, string> = {
@@ -72,36 +33,42 @@ const ActiveRoutesPage: React.FC = () => {
   const { isAuthenticated } = useSelector((state: RootState) => state.auth);
   const [selectedRoute, setSelectedRoute] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [routes, setRoutes]= useState<Route[]>()
-  const {token}= useSelector((state: RootState)=>state.auth)
-  
+  const [routes, setRoutes] = useState<Route[]>([]);
+  const {token} = useSelector((state: RootState) => state.auth);
 
-  const getActiveRoutes= async ()=>{
+  const getActiveRoutes = async () => {
     try {
-      const  res = await axios.get("http://127.0.0.1:8000/delivery/activeroute/",{
-        headers:{
+      const res = await axios.get("http://127.0.0.1:8000/delivery/activeroute/", {
+        headers: {
           Authorization: `Bearer ${token}`,
-          // "Content-Type" : "multipart/form-data"
         }
-      })
-    setRoutes(res.data)
-    console.log(res.data)
+      });
+      
+      // Add status property with default value to each route
+      const routesWithStatus = res.data.map((route: Route) => ({
+        ...route,
+        status: "scheduled" // Default status
+      }));
+      
+      setRoutes(routesWithStatus);
+      console.log(res.data);
     } catch (error) {
-      console.log(error)
+      console.log(error);
+      setRoutes([]);
     }
   }
 
-  useEffect(()=>{
-    getActiveRoutes()
-  },[])
+  useEffect(() => {
+    getActiveRoutes();
+  }, []);
 
   if (!isAuthenticated) {
     return <Navigate to="/login" />;
   }
 
   const filteredRoutes = statusFilter === "all" 
-    ? mockRoutes 
-    : mockRoutes.filter(route => route.status === statusFilter);
+    ? routes 
+    : routes.filter(route => route.status === statusFilter);
 
   const handleRouteClick = (routeId: string) => {
     setSelectedRoute(selectedRoute === routeId ? null : routeId);
@@ -158,9 +125,9 @@ const ActiveRoutesPage: React.FC = () => {
                   filteredRoutes.map((route) => (
                     <div 
                       key={route.id}
-                      onClick={() => handleRouteClick(route.id)}
+                      onClick={() => handleRouteClick(String(route.id))}
                       className={`p-4 cursor-pointer transition-colors duration-150 ${
-                        selectedRoute === route.id ? "bg-accent/10" : "hover:bg-secondary/50"
+                        selectedRoute === String(route.id) ? "bg-accent/10" : "hover:bg-secondary/50"
                       }`}
                     >
                       <div className="flex justify-between items-start">
@@ -169,29 +136,26 @@ const ActiveRoutesPage: React.FC = () => {
                             Route #{route.id}
                           </h3>
                           <p className="mt-1 text-xs text-primary/70">
-                            <span className="font-medium">Partner:</span> {route.deliveryPartner}
+                            <span className="font-medium">User:</span> {route.user}
                           </p>
                           <p className="mt-1 text-xs text-primary/70">
-                            <span className="font-medium">From:</span> {route.startLocation}
+                            <span className="font-medium">From:</span> {route.start_location}
                           </p>
                           <p className="mt-1 text-xs text-primary/70">
-                            <span className="font-medium">Destinations:</span> {route.destinations.length}
+                            <span className="font-medium">To:</span> {route.end_location}
                           </p>
                         </div>
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColors[route.status]}`}>
-                          {route.status.charAt(0).toUpperCase() + route.status.slice(1)}
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColors[route.status || "scheduled"]}`}>
+                          {(route.status || "Scheduled").charAt(0).toUpperCase() + (route.status || "scheduled").slice(1)}
                         </span>
                       </div>
 
                       <div className="mt-2 flex justify-between items-center">
                         <div className="text-xs text-primary/70">
-                          <span className="font-medium">Departure:</span> {new Date(route.departureTime).toLocaleTimeString()}
+                          <span className="font-medium">Date:</span> {route.date}
                         </div>
                         <div className="text-xs text-primary/70">
-                          <span className="font-medium">ETA:</span> {new Date(route.estimatedCompletion).toLocaleTimeString()}
-                        </div>
-                        <div className="text-xs bg-secondary px-2 py-1 rounded">
-                          {route.vehicle}
+                          <span className="font-medium">Time:</span> {route.time}
                         </div>
                       </div>
                     </div>
@@ -240,21 +204,26 @@ const ActiveRoutesPage: React.FC = () => {
                   </div>
                   
                   <div className="p-4">
-                    <h3 className="font-medium text-primary mb-2">Delivery Stops</h3>
+                    <h3 className="font-medium text-primary mb-2">Delivery Information</h3>
                     
                     <div className="ml-2 relative border-l-2 border-secondary pl-6 py-2">
-                      {mockRoutes.find(r => r.id === selectedRoute)?.destinations.map((dest, idx) => (
-                        <div key={idx} className="mb-6 relative">
+                      {selectedRoute && routes.find(r => String(r.id) === selectedRoute) && (
+                        <div className="mb-6 relative">
                           <div className="absolute -left-[2.15rem] w-4 h-4 rounded-full border-2 border-secondary bg-white"></div>
                           <div className="bg-secondary/50 p-3 rounded-lg">
-                            <p className="text-sm font-medium text-primary">Stop #{idx + 1}</p>
-                            <p className="text-sm text-primary/80">{dest.address}</p>
+                            <p className="text-sm font-medium text-primary">Destination</p>
+                            <p className="text-sm text-primary/80">
+                              {routes.find(r => String(r.id) === selectedRoute)?.end_location}
+                            </p>
                             <p className="text-xs text-primary/60 mt-1">
-                              Estimated arrival: {new Date(dest.estimatedArrival).toLocaleTimeString()}
+                              Date: {routes.find(r => String(r.id) === selectedRoute)?.date}
+                            </p>
+                            <p className="text-xs text-primary/60 mt-1">
+                              Time: {routes.find(r => String(r.id) === selectedRoute)?.time}
                             </p>
                           </div>
                         </div>
-                      ))}
+                      )}
                       
                       <div className="absolute -left-[2.15rem] bottom-0 w-4 h-4 rounded-full bg-accent"></div>
                     </div>

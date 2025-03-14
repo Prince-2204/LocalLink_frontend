@@ -6,45 +6,19 @@ import DeliveryNavbar from "@/components/DeliveryComp/DeliveryNavbar";
 import useIsMobile from "@/lib/hooks/useIsMobile";
 import axios from "axios";
 
-// Mock available orders data - orders posted by users that delivery partners can accept
-const mockAvailableOrders = [
-  {
-    id: "order-001",
-    itemName: "Birthday Gift Package",
-    itemDescription: "Wrapped gift box, handle with care, 2kg weight",
-    pickupLocation: "Andheri East, Mumbai",
-    deliveryLocation: "Bandra West, Mumbai",
-    status: "available",
-    createdAt: "2023-08-15T10:30:00",
-    estimatedDelivery: "2023-08-15T13:30:00",
-    customerName: "Amit Sharma",
-    price: 120,
-  },
-  {
-    id: "order-002",
-    itemDescription: "Important documents, keep dry, 0.5kg weight",
-    itemName: "Document Folder",
-    pickupLocation: "Koramangala, Bangalore",
-    deliveryLocation: "HSR Layout, Bangalore",
-    status: "available",
-    createdAt: "2023-08-16T09:15:00",
-    estimatedDelivery: "2023-08-16T11:30:00",
-    customerName: "Priya Patel",
-    price: 80,
-  },
-  {
-    id: "order-003",
-    itemName: "Laptop",
-    itemDescription: "Electronic item, fragile, 1.8kg weight",
-    pickupLocation: "Connaught Place, Delhi",
-    deliveryLocation: "Lajpat Nagar, Delhi",
-    status: "available",
-    createdAt: "2023-08-17T11:00:00",
-    estimatedDelivery: "2023-08-17T14:45:00",
-    customerName: "Rohit Kapoor",
-    price: 150,
-  },
-];
+// Interface for orders from backend
+interface Order {
+  order_number: number;
+  order_id: string;
+  item_name: string;
+  item_details: string;
+  pickup: string;
+  dropoff: string;
+  delivery_deadline: string;
+  budget: number;
+  status: string;
+  user: number;
+}
 
 const statusColors: Record<string, string> = {
   available: "bg-green-100 text-green-800",
@@ -58,69 +32,73 @@ const statusText: Record<string, string> = {
   nearby: "Location is nearby your current position",
 };
 
-export interface ActiveOrder {
-  id: string;
-  itemName: string;
-  itemDescription: string;
-  pickupLocation: string;
-  deliveryLocation: string;
-  status:
-    | "available"
-    | "far"
-    | "nearby"
-    | "accepted"
-    | "in-transit"
-    | "delivered"
-    | "cancelled";
-  createdAt: string;
-  estimatedDelivery: string;
-  customerName: string;
-  price: number;
-}
-
 const ActiveOrdersPage: React.FC = () => {
-  const { isAuthenticated } = useSelector((state: RootState) => state.auth);
+  const { isAuthenticated, token } = useSelector((state: RootState) => state.auth);
   const [distanceFilter, setDistanceFilter] = useState<string>("all");
   const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
-  const [activeOrders, setActiveOrders] = useState<ActiveOrder[]>();
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
   const isMobile = useIsMobile();
 
   const getActiveOrders = async () => {
     try {
-      const res = await axios.get(":(");
-      setActiveOrders(res);
+      setLoading(true);
+      const res = await axios.get("http://127.0.0.1:8000/delivery/orders/", {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      setOrders(res.data);
+      console.log("Orders from backend:", res.data);
+      setError(null);
     } catch (error) {
       console.log(error);
+      setError("Failed to load available orders");
+    } finally {
+      setLoading(false);
     }
   };
+
   useEffect(() => {
     getActiveOrders();
-  });
+  }, [token]);
 
   if (!isAuthenticated) {
     return <Navigate to="/login" />;
   }
 
-  const filteredOrders =
-    distanceFilter === "all"
-      ? mockAvailableOrders
-      : mockAvailableOrders.filter((order) => order.status === distanceFilter);
+  // All orders are considered available for display purposes
+  const filteredOrders = orders.filter(order => {
+    if (distanceFilter === "all") return true;
+    // You can implement distance filtering logic here if needed
+    // For now, we're treating all orders as available
+    return distanceFilter === "nearby";
+  });
 
   const handleOrderClick = (orderId: string) => {
     setSelectedOrder(selectedOrder === orderId ? null : orderId);
   };
 
   const handleAcceptOrder = async (orderId: string) => {
-    // In a real app, this would make an API call to accept the order
     try {
-      const res = await axios.post("dfodfa", { orderId: orderId });
-      console.log(res);
-      alert(
-        `Order ${orderId} accepted! This order will now appear in your "Orders Delivered" page.`
+      // Replace with your actual API endpoint
+      const res = await axios.post("http://127.0.0.1:8000/delivery/accept-order/", 
+        { order_id: orderId },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
       );
+      console.log(res);
+      alert(`Order accepted! This order will now appear in your "Orders Delivered" page.`);
+      // Refresh orders after accepting one
+      getActiveOrders();
     } catch (error) {
       console.log(error);
+      alert("Failed to accept order. Please try again.");
     }
   };
 
@@ -173,14 +151,28 @@ const ActiveOrdersPage: React.FC = () => {
           <div className="lg:col-span-2">
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
               <div className="divide-y divide-gray-200">
-                {filteredOrders.length > 0 ? (
+                {loading ? (
+                  <div className="p-6 text-center">
+                    <svg className="animate-spin h-8 w-8 text-accent mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <p className="mt-2 text-sm text-gray-500">Loading orders...</p>
+                  </div>
+                ) : error ? (
+                  <div className="p-6 text-center">
+                    <p className="text-sm text-red-500">{error}</p>
+                    <button className="mt-2 text-accent hover:underline" onClick={getActiveOrders}>
+                      Try Again
+                    </button>
+                  </div>
+                ) : filteredOrders.length > 0 ? (
                   filteredOrders.map((order) => (
-                    <div>
+                    <div key={order.order_id}>
                       <div
-                        key={order.id}
-                        onClick={() => handleOrderClick(order.id)}
+                        onClick={() => handleOrderClick(order.order_id)}
                         className={`p-4 cursor-pointer transition-colors duration-150 ${
-                          selectedOrder === order.id
+                          selectedOrder === order.order_id
                             ? "bg-accent/10"
                             : "hover:bg-gray-50"
                         }`}
@@ -188,10 +180,10 @@ const ActiveOrdersPage: React.FC = () => {
                         <div className="flex justify-between items-start">
                           <div>
                             <h3 className="text-sm font-medium text-gray-900">
-                              {order.itemName}
+                              {order.item_name}
                             </h3>
                             <p className="mt-1 text-xs text-gray-500 line-clamp-1">
-                              {order.itemDescription}
+                              {order.item_details}
                             </p>
                           </div>
                           <span
@@ -223,7 +215,7 @@ const ActiveOrdersPage: React.FC = () => {
                               />
                             </svg>
                             <span className="text-gray-600">
-                              From: {order.pickupLocation}
+                              From: {order.pickup}
                             </span>
                           </div>
                           <div className="flex items-center text-xs">
@@ -241,26 +233,26 @@ const ActiveOrdersPage: React.FC = () => {
                               />
                             </svg>
                             <span className="text-gray-600">
-                              To: {order.deliveryLocation}
+                              To: {order.dropoff}
                             </span>
                           </div>
                         </div>
 
                         <div className="mt-3 flex justify-between items-center">
                           <div className="text-xs text-gray-500">
-                            {new Date(order.createdAt).toLocaleDateString()}
+                            Order #{order.order_number}
                           </div>
                           <div className="text-sm font-medium">
-                            ₹{order.price}
+                            ₹{order.budget}
                           </div>
                         </div>
                       </div>
-                      {isMobile && selectedOrder === order.id
+                      {isMobile && selectedOrder === order.order_id
                         ? (() => {
-                            const order = mockAvailableOrders.find(
-                              (o) => o.id === selectedOrder
+                            const selectedOrderData = orders.find(
+                              (o) => o.order_id === selectedOrder
                             );
-                            if (!order) return null;
+                            if (!selectedOrderData) return null;
 
                             return (
                               <div className="flex flex-col p-4 border-t border-gray-200 bg-gray-50">
@@ -275,12 +267,12 @@ const ActiveOrdersPage: React.FC = () => {
                                     <div className="flex gap-2 items-center mt-1">
                                       <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center">
                                         <span className="text-white text-sm font-medium">
-                                          {order.customerName.charAt(0)}
+                                          U
                                         </span>
                                       </div>
                                       <div>
                                         <h1 className="text-sm font-medium">
-                                          {order.customerName}
+                                          User #{selectedOrderData.user}
                                         </h1>
                                         <p className="text-xs text-gray-600">
                                           Customer
@@ -294,30 +286,20 @@ const ActiveOrdersPage: React.FC = () => {
                                     </h1>
                                     <div className="mt-1">
                                       <p className="text-sm text-gray-700">
-                                        Estimated:{" "}
+                                        Deadline:{" "}
                                         {new Date(
-                                          order.estimatedDelivery
+                                          selectedOrderData.delivery_deadline
                                         ).toLocaleTimeString()}{" "}
                                         on{" "}
                                         {new Date(
-                                          order.estimatedDelivery
-                                        ).toLocaleDateString()}
-                                      </p>
-                                      <p className="text-xs text-gray-500 mt-1">
-                                        Order placed:{" "}
-                                        {new Date(
-                                          order.createdAt
-                                        ).toLocaleTimeString()}{" "}
-                                        on{" "}
-                                        {new Date(
-                                          order.createdAt
+                                          selectedOrderData.delivery_deadline
                                         ).toLocaleDateString()}
                                       </p>
                                     </div>
                                   </div>
                                 </div>
                                 <button
-                                  onClick={() => handleAcceptOrder(order.id)}
+                                  onClick={() => handleAcceptOrder(selectedOrderData.order_id)}
                                   className="mt-4 py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-accent hover:bg-accent/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent"
                                 >
                                   Accept Order
@@ -361,8 +343,8 @@ const ActiveOrdersPage: React.FC = () => {
               {selectedOrder ? (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden h-full">
                   {(() => {
-                    const order = mockAvailableOrders.find(
-                      (o) => o.id === selectedOrder
+                    const order = orders.find(
+                      (o) => o.order_id === selectedOrder
                     );
                     if (!order) return null;
 
@@ -372,10 +354,10 @@ const ActiveOrdersPage: React.FC = () => {
                           <div className="flex justify-between items-start">
                             <div>
                               <h2 className="text-xl font-bold text-gray-900">
-                                {order.itemName}
+                                {order.item_name}
                               </h2>
                               <p className="text-sm text-gray-500 mt-1">
-                                Order #{order.id}
+                                Order #{order.order_number}
                               </p>
                             </div>
                             <span
@@ -397,7 +379,7 @@ const ActiveOrdersPage: React.FC = () => {
                             Item Details
                           </h3>
                           <p className="text-sm text-gray-700">
-                            {order.itemDescription}
+                            {order.item_details}
                           </p>
 
                           <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -407,7 +389,7 @@ const ActiveOrdersPage: React.FC = () => {
                               </h4>
                               <div className="bg-gray-50 p-3 rounded-lg">
                                 <p className="text-sm text-gray-700">
-                                  {order.pickupLocation}
+                                  {order.pickup}
                                 </p>
                               </div>
                             </div>
@@ -417,7 +399,7 @@ const ActiveOrdersPage: React.FC = () => {
                               </h4>
                               <div className="bg-gray-50 p-3 rounded-lg">
                                 <p className="text-sm text-gray-700">
-                                  {order.deliveryLocation}
+                                  {order.dropoff}
                                 </p>
                               </div>
                             </div>
@@ -437,12 +419,12 @@ const ActiveOrdersPage: React.FC = () => {
                               <div className="flex items-center">
                                 <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center">
                                   <span className="text-white text-sm font-medium">
-                                    {order.customerName.charAt(0)}
+                                    U
                                   </span>
                                 </div>
                                 <div className="ml-3">
                                   <p className="text-sm font-medium text-gray-900">
-                                    {order.customerName}
+                                    User #{order.user}
                                   </p>
                                   <p className="text-xs text-gray-500">
                                     Customer
@@ -455,20 +437,14 @@ const ActiveOrdersPage: React.FC = () => {
                                 Delivery Time
                               </h4>
                               <p className="text-sm text-gray-700">
-                                Estimated:{" "}
+                                Deadline:{" "}
                                 {new Date(
-                                  order.estimatedDelivery
+                                  order.delivery_deadline
                                 ).toLocaleTimeString()}{" "}
                                 on{" "}
                                 {new Date(
-                                  order.estimatedDelivery
+                                  order.delivery_deadline
                                 ).toLocaleDateString()}
-                              </p>
-                              <p className="text-xs text-gray-500 mt-1">
-                                Order placed:{" "}
-                                {new Date(order.createdAt).toLocaleTimeString()}{" "}
-                                on{" "}
-                                {new Date(order.createdAt).toLocaleDateString()}
                               </p>
                             </div>
                           </div>
@@ -480,13 +456,13 @@ const ActiveOrdersPage: React.FC = () => {
                               Payment
                             </h3>
                             <span className="text-md font-bold text-gray-900">
-                              ₹{order.price}
+                              ₹{order.budget}
                             </span>
                           </div>
 
                           <div className="mt-4">
                             <button
-                              onClick={() => handleAcceptOrder(order.id)}
+                              onClick={() => handleAcceptOrder(order.order_id)}
                               className="w-full py-3 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-accent hover:bg-accent/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent"
                             >
                               Accept Order
